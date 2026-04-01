@@ -1,17 +1,19 @@
 <script>
-import { getFlightsData } from '../api/data';
+// import { getFlightsData } from '../api/data';
+import axios from "axios";
 
 export default {
     data() {
         return {
-            flights: getFlightsData,
+            flights: [],
             source: '',
             destination: '',
             sortBy: 'duration',
             errorMessage: '',
             hasSearched: false,
+            url: "https://gbi-team-filesystem.s3.us-east-1.amazonaws.com/flights.json"
         };
-    
+
     },
     computed: {
         allCities() {
@@ -30,10 +32,24 @@ export default {
         },
         availableDestinations() {
             if (!this.source) return this.allCities;
-            return this.allCities.filter((city) => city !== this.source);
+
+            const destinationSet = new Set();
+
+            this.flights.forEach((flight) => {
+                if (!flight.segment || flight.segment.length === 0) return;
+
+                const firstSegment = flight.segment[0];
+                const lastSegment = flight.segment[flight.segment.length - 1];
+
+                if (firstSegment.origin === this.source) {
+                    destinationSet.add(lastSegment.destination);
+                }
+            });
+
+            return Array.from(destinationSet);
         },
         filteredFlights() {
-          
+
             if (!this.source || !this.destination || this.source === this.destination) {
                 return [];
             }
@@ -66,22 +82,26 @@ export default {
                 };
             });
 
-           
+
             if (this.sortBy === 'duration') {
                 mappedResults.sort((a, b) => a.duration - b.duration);
             }
 
             return mappedResults;
-        },
+        }
+    },
+
+    mounted() {
+        this.getFlightsData()
     },
     watch: {
-        
         source() {
+            this.destination = '';
             this.validateSelection();
         },
         destination() {
             this.validateSelection();
-        },
+        }
     },
     methods: {
         validateSelection() {
@@ -99,7 +119,9 @@ export default {
                 return;
             }
 
-           
+
+            //  console.log(this.destination)
+
             if (!this.availableDestinations.includes(this.destination)) {
                 this.errorMessage = "Destination is invalid for selected source";
                 this.destination = '';
@@ -128,10 +150,30 @@ export default {
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         },
+
+        async getFlightsData() {
+            console.log("data")
+            try {
+                const response = await axios.get(this.url)
+                console.log(response.data)
+                const arr = response?.data
+                this.flights = arr
+
+
+            } catch (error) {
+                console.error("API Error:", error);
+                throw error;
+            }
+
+        }
+
     },
+
+
 };
 </script>
 <template>
+
     <div id="app" v-cloak>
         <div class="background-effect"></div>
         <div class="container">
@@ -252,5 +294,4 @@ export default {
             </div>
         </div>
     </div>
-
 </template>
